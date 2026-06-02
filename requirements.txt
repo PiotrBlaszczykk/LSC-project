@@ -1,0 +1,15 @@
+datasets<4.0.0
+pandas
+numpy
+tqdm
+nltk
+scikit-learn
+sentence-transformers
+umap-learn
+pacmap
+openTSNE
+hdbscan
+plotly
+matplotlib
+seaborn
+vaderSentiment
