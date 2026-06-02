@@ -20,10 +20,15 @@ import config
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run one dimensionality reduction benchmark.")
     parser.add_argument("--method", choices=config.METHODS, required=True)
-    parser.add_argument("--n-samples", type=int, choices=config.N_VALUES, required=True)
+    parser.add_argument("--n-samples", type=int, required=True)
     parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
     parser.add_argument("--results-dir", type=Path, default=ROOT / "results")
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.n_samples <= 0:
+        parser.error("--n-samples must be positive")
+
+    return args
 
 
 def load_embeddings(data_dir: Path, n_samples: int) -> np.ndarray:

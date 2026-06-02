@@ -40,6 +40,12 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Run a tiny end-to-end smoke test first:
+
+```bash
+python scripts/00_smoke_test.py
+```
+
 Prepare the largest embedding sample:
 
 ```bash
@@ -66,6 +72,12 @@ python scripts/04_plot_results.py
 
 ## SLURM run
 
+Run a tiny smoke test on Ares before the full benchmark:
+
+```bash
+sbatch slurm/smoke_test.sbatch
+```
+
 Prepare embeddings once, then submit the benchmark array:
 
 ```bash
@@ -87,6 +99,28 @@ python scripts/04_plot_results.py
 
 The final plot is saved to `plots/time_by_method.png`.
 
+## Outputs
+
+Smoke test outputs:
+
+- `data/smoke/reviews_500.csv`
+- `data/smoke/embeddings_500.npy`
+- `results/smoke/benchmark_<method>_500.csv`
+- `results/smoke/results_all.csv`
+- `plots/smoke/time_by_method.png`
+- `logs/smoke_<job_id>.out`
+- `logs/smoke_<job_id>.err`
+
+Full benchmark outputs:
+
+- `data/reviews_50000.csv`
+- `data/embeddings_50000.npy`
+- `results/benchmark_<method>_<n_samples>.csv`
+- `results/results_all.csv`
+- `plots/time_by_method.png`
+- `logs/reduction_<array_job_id>_<task_id>.out`
+- `logs/reduction_<array_job_id>_<task_id>.err`
+
 ## Ares workflow
 
 The simplest workflow is to push changes to GitHub and pull them on Ares:
@@ -94,6 +128,7 @@ The simplest workflow is to push changes to GitHub and pull them on Ares:
 ```bash
 git pull
 pip3.12 install -r requirements.txt
+sbatch slurm/smoke_test.sbatch
 python scripts/01_prepare_embeddings.py --n-samples 50000
 sbatch slurm/reduction_array.sbatch
 ```
@@ -143,6 +178,6 @@ extra safety margin                           140 CPU-hours
 total                                        3000 CPU-hours
 ```
 
-The actual final benchmark can still use the simple 12-task SLURM array. The
+The actual final benchmark can still use the simple 16-task SLURM array. The
 larger number is a practical allocation request, not a requirement to consume
 all CPU-hours.
