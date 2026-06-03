@@ -15,8 +15,9 @@ No product metadata is used.
 1. Load review texts.
 2. Compute SentenceTransformer embeddings.
 3. Run PCA, UMAP, PaCMAP and FIt-SNE for several sample sizes.
-4. Save one CSV file per benchmark task.
-5. Merge results and plot runtime curves.
+4. Save one runtime CSV file and one 2D coordinates CSV file per benchmark task.
+5. Merge runtime results and plot runtime curves.
+6. Plot selected 2D projections for visualization.
 
 Sample sizes:
 
@@ -82,6 +83,18 @@ Create the plot:
 python scripts/04_plot_results.py
 ```
 
+Plot a 2D embedding projection:
+
+```bash
+python scripts/05_plot_coordinates.py --method umap --n-samples 50000
+```
+
+Plot the same projection with simple HDBSCAN cluster coloring:
+
+```bash
+python scripts/05_plot_coordinates.py --method umap --n-samples 50000 --color-by cluster --output plots/coordinates/embedding_umap_50000_clusters.png
+```
+
 ## SLURM run
 
 Run a tiny smoke test on Ares before the full benchmark:
@@ -103,11 +116,14 @@ The array runs 16 tasks:
 - 4 reduction methods
 
 Each task writes one file to `results/benchmark_<method>_<n_samples>.csv`.
+It also writes reduced 2D coordinates to
+`results/coordinates/coords_<method>_<n_samples>.csv`.
 After all jobs finish, run:
 
 ```bash
 python scripts/03_merge_results.py
 python scripts/04_plot_results.py
+python scripts/05_plot_coordinates.py --method umap --n-samples 50000
 ```
 
 The final plot is saved to `plots/time_by_method.png`.
@@ -119,8 +135,10 @@ Smoke test outputs:
 - `data/smoke/reviews_500.csv`
 - `data/smoke/embeddings_500.npy`
 - `results/smoke/benchmark_<method>_500.csv`
+- `results/smoke/coordinates/coords_<method>_500.csv`
 - `results/smoke/results_all.csv`
 - `plots/smoke/time_by_method.png`
+- `plots/smoke/coordinates/embedding_<method>_500.png`
 - `logs/smoke_<job_id>.out`
 - `logs/smoke_<job_id>.err`
 
@@ -131,8 +149,10 @@ Full benchmark outputs:
 - `logs/prepare_<job_id>.out`
 - `logs/prepare_<job_id>.err`
 - `results/benchmark_<method>_<n_samples>.csv`
+- `results/coordinates/coords_<method>_<n_samples>.csv`
 - `results/results_all.csv`
 - `plots/time_by_method.png`
+- `plots/coordinates/embedding_<method>_<n_samples>.png`
 - `logs/reduction_<array_job_id>_<task_id>.out`
 - `logs/reduction_<array_job_id>_<task_id>.err`
 

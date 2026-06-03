@@ -26,11 +26,13 @@ def main() -> None:
     data_dir = ROOT / "data" / "smoke"
     results_dir = ROOT / "results" / "smoke"
     plot_path = ROOT / "plots" / "smoke" / "time_by_method.png"
+    coordinates_plots_dir = ROOT / "plots" / "smoke" / "coordinates"
     merged_path = results_dir / "results_all.csv"
 
     data_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
     plot_path.parent.mkdir(parents=True, exist_ok=True)
+    coordinates_plots_dir.mkdir(parents=True, exist_ok=True)
 
     run(
         [
@@ -82,10 +84,27 @@ def main() -> None:
         ]
     )
 
+    for method in ["pca", "umap", "pacmap", "fitsne"]:
+        run(
+            [
+                sys.executable,
+                "scripts/05_plot_coordinates.py",
+                "--method",
+                method,
+                "--n-samples",
+                str(args.n_samples),
+                "--results-dir",
+                str(results_dir),
+                "--output",
+                str(coordinates_plots_dir / f"embedding_{method}_{args.n_samples}.png"),
+            ]
+        )
+
     print("\nSmoke test finished.")
     print(f"Data: {data_dir}")
     print(f"Results: {results_dir}")
     print(f"Plot: {plot_path}")
+    print(f"Coordinates plots: {coordinates_plots_dir}")
 
 
 if __name__ == "__main__":
