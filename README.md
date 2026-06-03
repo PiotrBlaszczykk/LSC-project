@@ -19,6 +19,12 @@ No product metadata is used.
 5. Merge runtime results and plot runtime curves.
 6. Plot selected 2D projections for visualization.
 
+The expensive part is executed once on Ares. The generated
+`results/coordinates/coords_<method>_<n_samples>.csv` files are the reusable
+visualization dataset: they contain the final 2D points and can be used later
+to redesign plots, recolor points, join reviews, or run simple cluster analysis
+without recomputing embeddings or dimensionality reductions.
+
 Sample sizes:
 
 - 5000
@@ -103,11 +109,33 @@ Run a tiny smoke test on Ares before the full benchmark:
 sbatch slurm/smoke_test.sbatch
 ```
 
-Prepare embeddings once as a SLURM job, then submit the benchmark array:
+The recommended full experiment launcher is:
 
 ```bash
-sbatch slurm/prepare_embeddings.sbatch
-sbatch slurm/reduction_array.sbatch
+bash run_jobs_scripts/main_run.sh
+```
+
+It submits the full SLURM chain:
+
+1. `slurm/prepare_embeddings.sbatch`
+2. `slurm/reduction_array.sbatch`
+3. `slurm/postprocess.sbatch`
+
+The reduction job starts only after embeddings are ready, and postprocessing
+starts only after the full reduction array succeeds.
+
+If embeddings already exist and you only want to rerun reductions:
+
+```bash
+SKIP_PREPARE=1 bash run_jobs_scripts/main_run.sh
+```
+
+Manual equivalent:
+
+```bash
+prepare_job=$(sbatch --parsable slurm/prepare_embeddings.sbatch)
+reduction_job=$(sbatch --parsable --dependency=afterok:$prepare_job slurm/reduction_array.sbatch)
+sbatch --dependency=afterok:$reduction_job slurm/postprocess.sbatch
 ```
 
 The array runs 16 tasks:
@@ -155,9 +183,19 @@ Full benchmark outputs:
 - `plots/coordinates/embedding_<method>_<n_samples>.png`
 - `logs/reduction_<array_job_id>_<task_id>.out`
 - `logs/reduction_<array_job_id>_<task_id>.err`
+- `logs/postprocess_<job_id>.out`
+- `logs/postprocess_<job_id>.err`
 
 Hugging Face cache is written to `$SCRATCH/hf_cache` by the SLURM scripts, so
 model and dataset cache files do not fill the smaller `$HOME` quota.
+
+Most important reusable files:
+
+- `results/results_all.csv` - merged runtime benchmark table.
+- `results/coordinates/coords_<method>_<n_samples>.csv` - final 2D coordinates
+  for visualization and analysis.
+- `plots/time_by_method.png` - runtime scaling plot.
+- `plots/coordinates/*.png` - 2D review maps colored by rating or clusters.
 
 ## Ares workflow
 
@@ -208,9 +246,8 @@ cd ~/LSC-project
 git pull
 source ~/venvs/lsc-amazon/bin/activate
 python -m pip install -r requirements.txt
-sbatch slurm/smoke_test.sbatch
-sbatch slurm/prepare_embeddings.sbatch
-sbatch slurm/reduction_array.sbatch
+bash smoke_test.sh
+bash run_jobs_scripts/main_run.sh
 ```
 
 Do not run SLURM scripts with `sh`. Use `sbatch`, otherwise SLURM variables and
@@ -230,6 +267,10 @@ source ~/venvs/lsc-amazon/bin/activate
 python scripts/03_merge_results.py
 python scripts/04_plot_results.py
 ```
+
+The full launcher already submits postprocessing. The manual commands above are
+useful if you change plot styling locally or want to regenerate figures from
+existing CSV files.
 
 Download final lightweight outputs from your laptop terminal, not from Ares:
 
