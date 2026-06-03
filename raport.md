@@ -321,30 +321,58 @@ This explains why rating-colored plots are mostly yellow. This is a dataset
 property, not a plotting error. For presenting opinion segments, cluster-colored
 plots are more readable.
 
-## Relationship to the Visualization Project
+## Example Cluster Inspection
 
-This experiment can be treated as the computational backend for the project:
+To check whether the PaCMAP clusters correspond to meaningful review topics,
+three distant clusters from the 50k PaCMAP projection were inspected manually.
+The cluster labels were reproduced using the same plotting setup:
 
-> Customer opinion analysis and segmentation of products/opinions.
+- PaCMAP coordinates from `results/main_run_1/coordinates/coords_pacmap_50000.csv`,
+- 20,000 sampled points with `random_state=42`,
+- HDBSCAN on the 2D `x, y` coordinates,
+- `min_cluster_size=30`.
 
-It satisfies the relevant requirements:
+Cluster IDs are arbitrary labels assigned by HDBSCAN. The value `-1` means
+noise, i.e. points not assigned to any dense cluster.
 
-- review data preparation,
-- work on a large Amazon Reviews dataset,
-- basic text preprocessing by filtering empty reviews,
-- text embedding preparation,
-- comparison of PCA, UMAP, PaCMAP and FIt-SNE,
-- runtime benchmark plots,
-- 2D opinion maps,
-- reusable data for cluster and segment analysis.
+### Cluster 11: smartwatches and fitness watches
 
-The most important bridge between LSC and visualization is:
+This cluster contains reviews about smartwatches, watch screens, fitness data,
+health measurements and watch apps.
 
-```text
-results/<run_name>/coordinates/coords_<method>_<n_samples>.csv
-```
+| point_id | rating | short excerpt |
+|---:|---:|---|
+| 18362 | 5.0 | "sport watch ... touch screen ... monitor your fitness data" |
+| 32168 | 5.0 | "Apple Watch is too expensive ... other cool watches" |
+| 36026 | 4.0 | "using this watch daily ... wear os app ... Apple series 2" |
 
-These files are a ready-to-use visualization dataset.
+### Cluster 16: computer mice and ergonomics
+
+This cluster contains reviews about mice, vertical mice, wrist comfort,
+tracking, buttons and everyday computer use.
+
+| point_id | rating | short excerpt |
+|---:|---:|---|
+| 44997 | 4.0 | "vertical mice ... got rid of wrist pain" |
+| 3850 | 4.0 | "price to performance ratio for this little mouse" |
+| 20737 | 5.0 | "ordered this mouse ... large, domed style" |
+
+### Cluster 50: laptop bags, backpacks and carrying cases
+
+This cluster contains reviews about bags, pockets, laptops, straps, carry-on
+use and storage space.
+
+| point_id | rating | short excerpt |
+|---:|---:|---|
+| 4068 | 5.0 | "loads of pockets for all the computer wires" |
+| 21436 | 5.0 | "backpack ... carry-on bag ... many pockets" |
+| 19111 | 5.0 | "good tote bag ... corners of my laptop" |
+
+These examples suggest that the clusters are not random visual artifacts. They
+capture recognizable semantic neighborhoods in the review text. Cluster 11 is
+about watches, cluster 16 is about mice, and cluster 50 is about bags or laptop
+carrying accessories. This supports the use of the generated 2D coordinates as
+a practical basis for qualitative opinion segmentation.
 
 ## CPU-Hours
 
