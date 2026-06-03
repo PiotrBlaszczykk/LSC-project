@@ -18,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot benchmark runtime by sample size.")
     parser.add_argument("--input", type=Path, default=ROOT / "results" / "results_all.csv")
     parser.add_argument("--output", type=Path, default=ROOT / "plots" / "time_by_method.png")
+    parser.add_argument("--yscale", choices=["linear", "log"], default="linear")
     return parser.parse_args()
 
 
@@ -37,7 +38,10 @@ def main() -> None:
     ax.set_title("Dimensionality reduction runtime")
     ax.set_xlabel("Number of reviews")
     ax.set_ylabel("Time [s]")
+    ax.set_yscale(args.yscale)
     ax.grid(True, alpha=0.3)
+    if args.yscale == "log":
+        ax.grid(True, which="minor", alpha=0.15)
     ax.legend(title="Method")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

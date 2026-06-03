@@ -37,6 +37,9 @@ python --version
 
 python scripts/03_merge_results.py
 python scripts/04_plot_results.py
+python scripts/04_plot_results.py \
+  --yscale log \
+  --output plots/time_by_method_log.png
 
 METHODS=(pca umap pacmap fitsne)
 N_VALUES=(5000 10000 25000 50000)

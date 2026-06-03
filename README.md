@@ -89,6 +89,13 @@ Create the plot:
 python scripts/04_plot_results.py
 ```
 
+Create a log-scale runtime plot, useful when PCA is much faster than the other
+methods:
+
+```bash
+python scripts/04_plot_results.py --yscale log --output plots/time_by_method_log.png
+```
+
 Plot a 2D embedding projection:
 
 ```bash
@@ -180,6 +187,7 @@ Full benchmark outputs:
 - `results/coordinates/coords_<method>_<n_samples>.csv`
 - `results/results_all.csv`
 - `plots/time_by_method.png`
+- `plots/time_by_method_log.png`
 - `plots/coordinates/embedding_<method>_<n_samples>.png`
 - `logs/reduction_<array_job_id>_<task_id>.out`
 - `logs/reduction_<array_job_id>_<task_id>.err`
@@ -194,7 +202,9 @@ Most important reusable files:
 - `results/results_all.csv` - merged runtime benchmark table.
 - `results/coordinates/coords_<method>_<n_samples>.csv` - final 2D coordinates
   for visualization and analysis.
-- `plots/time_by_method.png` - runtime scaling plot.
+- `plots/time_by_method.png` - linear runtime scaling plot.
+- `plots/time_by_method_log.png` - log-scale runtime plot that makes very fast
+  PCA visible.
 - `plots/coordinates/*.png` - 2D review maps colored by rating or clusters.
 
 ## Ares workflow
