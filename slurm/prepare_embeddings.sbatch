@@ -1,16 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=amazon-reduction
-#SBATCH --array=0-15
+#SBATCH --job-name=amazon-embed
 #SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --output=logs/reduction_%A_%a.out
-#SBATCH --error=logs/reduction_%A_%a.err
+#SBATCH --output=logs/prepare_%j.out
+#SBATCH --error=logs/prepare_%j.err
 
 set -euo pipefail
 
 cd "$SLURM_SUBMIT_DIR"
-mkdir -p logs results
+mkdir -p logs data
 
 PYTHON_MODULE="${PYTHON_MODULE:-python/3.12.3-gcccore-13.3.0}"
 module load "$PYTHON_MODULE"
@@ -36,17 +35,4 @@ mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE"
 
 python --version
 
-METHODS=(pca umap pacmap fitsne)
-N_VALUES=(5000 10000 25000 50000)
-
-METHOD_INDEX=$((SLURM_ARRAY_TASK_ID % ${#METHODS[@]}))
-N_INDEX=$((SLURM_ARRAY_TASK_ID / ${#METHODS[@]}))
-
-METHOD="${METHODS[$METHOD_INDEX]}"
-N_SAMPLES="${N_VALUES[$N_INDEX]}"
-
-echo "Running method=${METHOD}, n_samples=${N_SAMPLES}"
-
-python scripts/02_run_benchmark.py \
-  --method "$METHOD" \
-  --n-samples "$N_SAMPLES"
+python scripts/01_prepare_embeddings.py --n-samples 50000 --batch-size 64
