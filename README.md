@@ -20,10 +20,10 @@ No product metadata is used.
 6. Plot selected 2D projections for visualization.
 
 The expensive part is executed once on Ares. The generated
-`results/coordinates/coords_<method>_<n_samples>.csv` files are the reusable
-visualization dataset: they contain the final 2D points and can be used later
-to redesign plots, recolor points, join reviews, or run simple cluster analysis
-without recomputing embeddings or dimensionality reductions.
+`results/<run_name>/coordinates/coords_<method>_<n_samples>.csv` files are the
+reusable visualization dataset: they contain the final 2D points and can be
+used later to redesign plots, recolor points, join reviews, or run simple
+cluster analysis without recomputing embeddings or dimensionality reductions.
 
 Sample sizes:
 
@@ -116,13 +116,13 @@ Run a tiny smoke test on Ares before the full benchmark:
 sbatch slurm/smoke_test.sbatch
 ```
 
-The recommended full experiment launcher is:
+The original full experiment launcher is:
 
 ```bash
 bash run_jobs_scripts/main_run.sh
 ```
 
-It submits the full SLURM chain:
+It submits the full SLURM chain and is treated as `main_run_1` in the report:
 
 1. `slurm/prepare_embeddings.sbatch`
 2. `slurm/reduction_array.sbatch`
@@ -135,6 +135,46 @@ If embeddings already exist and you only want to rerun reductions:
 
 ```bash
 SKIP_PREPARE=1 bash run_jobs_scripts/main_run.sh
+```
+
+### Main run 2: cleaner reduction-only benchmark
+
+After `data/embeddings_50000.npy` and `data/reviews_50000.csv` already exist,
+run the cleaner benchmark:
+
+```bash
+bash run_jobs_scripts/main_run_2.sh
+```
+
+This run reuses the same embeddings and focuses on timing the dimensionality
+reduction step itself. It avoids timing data loading, output saving, imports and
+reducer construction. The default settings are:
+
+- `TIMING_MODE=fit-only`
+- `BENCHMARK_REPEATS=3`
+- `WARMUP_SAMPLES=1000`
+- `RANDOM_STATE=none`
+
+At startup, the launcher also moves any existing root-level outputs from the
+first full run into `results/main_run_1`, `plots/main_run_1` and
+`logs/main_run_1`. It uses `mv -n`, so existing files are not overwritten.
+
+In this mode each SLURM array task:
+
+1. loads the embeddings before the timer,
+2. runs a small warm-up reduction to trigger imports, JIT compilation and
+   library setup,
+3. creates the reducer outside the timer,
+4. measures only `fit` / `fit_transform`,
+5. repeats the measurement three times,
+6. stores the median in `time_seconds` and all repeat timings in a separate CSV.
+
+`RANDOM_STATE=none` is intentional for this performance run: it lets UMAP use
+multiple workers instead of forcing `n_jobs=1`. If you want deterministic
+coordinates instead, override it:
+
+```bash
+RANDOM_STATE=42 bash run_jobs_scripts/main_run_2.sh
 ```
 
 Manual equivalent:
@@ -150,18 +190,19 @@ The array runs 16 tasks:
 - 4 sample sizes
 - 4 reduction methods
 
-Each task writes one file to `results/benchmark_<method>_<n_samples>.csv`.
-It also writes reduced 2D coordinates to
-`results/coordinates/coords_<method>_<n_samples>.csv`.
-After all jobs finish, run:
+With the plain script defaults, each task writes one runtime file and one
+coordinates file. In the organized outputs these are stored under
+`results/<run_name>/benchmark_<method>_<n_samples>.csv` and
+`results/<run_name>/coordinates/coords_<method>_<n_samples>.csv`.
+After all jobs finish, postprocessing can be rerun manually, for example:
 
 ```bash
-python scripts/03_merge_results.py
-python scripts/04_plot_results.py
-python scripts/05_plot_coordinates.py --method umap --n-samples 50000
+python scripts/03_merge_results.py --results-dir results/main_run_2 --output results/main_run_2/results_all.csv
+python scripts/04_plot_results.py --input results/main_run_2/results_all.csv --output plots/main_run_2/time_by_method.png
+python scripts/05_plot_coordinates.py --results-dir results/main_run_2 --method umap --n-samples 50000 --output plots/main_run_2/coordinates/embedding_umap_50000.png
 ```
 
-The final plot is saved to `plots/time_by_method.png`.
+The launchers already submit postprocessing automatically.
 
 ## Outputs
 
@@ -177,35 +218,53 @@ Smoke test outputs:
 - `logs/smoke_<job_id>.out`
 - `logs/smoke_<job_id>.err`
 
-Full benchmark outputs:
+Main run 1 outputs:
 
 - `data/reviews_50000.csv`
 - `data/embeddings_50000.npy`
-- `logs/prepare_<job_id>.out`
-- `logs/prepare_<job_id>.err`
-- `results/benchmark_<method>_<n_samples>.csv`
-- `results/coordinates/coords_<method>_<n_samples>.csv`
-- `results/results_all.csv`
-- `plots/time_by_method.png`
-- `plots/time_by_method_log.png`
-- `plots/coordinates/embedding_<method>_<n_samples>.png`
-- `logs/reduction_<array_job_id>_<task_id>.out`
-- `logs/reduction_<array_job_id>_<task_id>.err`
-- `logs/postprocess_<job_id>.out`
-- `logs/postprocess_<job_id>.err`
+- `logs/main_run_1/prepare_<job_id>.out`
+- `logs/main_run_1/prepare_<job_id>.err`
+- `results/main_run_1/benchmark_<method>_<n_samples>.csv`
+- `results/main_run_1/coordinates/coords_<method>_<n_samples>.csv`
+- `results/main_run_1/results_all.csv`
+- `plots/main_run_1/time_by_method.png`
+- `plots/main_run_1/time_by_method_log.png`
+- `plots/main_run_1/coordinates/embedding_<method>_<n_samples>.png`
+- `logs/main_run_1/reduction_<array_job_id>_<task_id>.out`
+- `logs/main_run_1/reduction_<array_job_id>_<task_id>.err`
+- `logs/main_run_1/postprocess_<job_id>.out`
+- `logs/main_run_1/postprocess_<job_id>.err`
+
+Main run 2 outputs:
+
+- `logs/main_run_2/main_run_2_<timestamp>.log`
+- `logs/main_run_2/reduction_<array_job_id>_<task_id>.out`
+- `logs/main_run_2/reduction_<array_job_id>_<task_id>.err`
+- `logs/main_run_2/postprocess_<job_id>.out`
+- `logs/main_run_2/postprocess_<job_id>.err`
+- `results/main_run_2/benchmark_<method>_<n_samples>.csv`
+- `results/main_run_2/timings_<method>_<n_samples>.csv`
+- `results/main_run_2/coordinates/coords_<method>_<n_samples>.csv`
+- `results/main_run_2/results_all.csv`
+- `plots/main_run_2/time_by_method.png`
+- `plots/main_run_2/time_by_method_log.png`
+- `plots/main_run_2/coordinates/embedding_<method>_<n_samples>.png`
+- `plots/main_run_2/coordinates/embedding_<method>_50000_clusters.png`
 
 Hugging Face cache is written to `$SCRATCH/hf_cache` by the SLURM scripts, so
 model and dataset cache files do not fill the smaller `$HOME` quota.
 
 Most important reusable files:
 
-- `results/results_all.csv` - merged runtime benchmark table.
-- `results/coordinates/coords_<method>_<n_samples>.csv` - final 2D coordinates
-  for visualization and analysis.
-- `plots/time_by_method.png` - linear runtime scaling plot.
-- `plots/time_by_method_log.png` - log-scale runtime plot that makes very fast
-  PCA visible.
-- `plots/coordinates/*.png` - 2D review maps colored by rating or clusters.
+- `results/main_run_1/results_all.csv` - first merged runtime benchmark table.
+- `results/main_run_2/results_all.csv` - cleaner reduction-only runtime table.
+- `results/<run_name>/coordinates/coords_<method>_<n_samples>.csv` - final 2D
+  coordinates for visualization and analysis.
+- `plots/<run_name>/time_by_method.png` - linear runtime scaling plot.
+- `plots/<run_name>/time_by_method_log.png` - log-scale runtime plot that makes
+  very fast PCA visible.
+- `plots/<run_name>/coordinates/*.png` - 2D review maps colored by rating or
+  clusters.
 
 ## Ares workflow
 
@@ -258,6 +317,7 @@ source ~/venvs/lsc-amazon/bin/activate
 python -m pip install -r requirements.txt
 bash smoke_test.sh
 bash run_jobs_scripts/main_run.sh
+bash run_jobs_scripts/main_run_2.sh
 ```
 
 Do not run SLURM scripts with `sh`. Use `sbatch`, otherwise SLURM variables and
@@ -287,6 +347,7 @@ Download final lightweight outputs from your laptop terminal, not from Ares:
 ```bash
 scp -r plgblaszczykk@login01.ares.cyfronet.pl:~/LSC-project/results .
 scp -r plgblaszczykk@login01.ares.cyfronet.pl:~/LSC-project/plots .
+scp -r plgblaszczykk@login01.ares.cyfronet.pl:~/LSC-project/logs .
 ```
 
 ## CPU-hours estimate
@@ -330,3 +391,13 @@ total                                        3000 CPU-hours
 The actual final benchmark can still use the simple 16-task SLURM array. The
 larger number is a practical allocation request, not a requirement to consume
 all CPU-hours.
+
+For `main_run_2`, the array wall-time limit is raised to 3 hours because each
+task performs warm-up plus three timed repeats:
+
+```text
+16 tasks * 8 CPU * 3 h = 384 CPU-hours worst-case allocation
+```
+
+In practice it should be much lower, but this bound is useful when estimating
+grant usage.

@@ -111,22 +111,23 @@ Each reduction task produced:
 
 ## Output Artifacts
 
-Most important files:
+Most important `main_run_1` files:
 
-- `results/results_all.csv` - merged runtime benchmark table.
-- `results/benchmark_<method>_<n_samples>.csv` - individual runtime
+- `results/main_run_1/results_all.csv` - merged runtime benchmark table.
+- `results/main_run_1/benchmark_<method>_<n_samples>.csv` - individual runtime
   measurements.
-- `results/coordinates/coords_<method>_<n_samples>.csv` - reusable 2D
+- `results/main_run_1/coordinates/coords_<method>_<n_samples>.csv` - reusable 2D
   coordinates for review embeddings.
-- `plots/time_by_method.png` - runtime scaling plot.
-- `plots/coordinates/*.png` - 2D review maps.
+- `plots/main_run_1/time_by_method.png` - runtime scaling plot.
+- `plots/main_run_1/time_by_method_log.png` - log-scale runtime plot.
+- `plots/main_run_1/coordinates/*.png` - 2D review maps.
 
 Artifact completeness after the full run:
 
 ```text
 benchmark CSV files: 16
 coordinate CSV files: 16
-plots/coordinates PNG files: 20
+plots/main_run_1/coordinates PNG files: 20
 ```
 
 The logs did not contain hard failures such as `ERROR`, `Traceback`, `FAILED`,
@@ -134,7 +135,7 @@ The logs did not contain hard failures such as `ERROR`, `Traceback`, `FAILED`,
 
 ## Runtime Results
 
-Table from `results/results_all.csv`:
+Table from `results/main_run_1/results_all.csv`:
 
 | Method | 5000 | 10000 | 25000 | 50000 |
 |---|---:|---:|---:|---:|
@@ -145,7 +146,7 @@ Table from `results/results_all.csv`:
 
 Linear runtime plot:
 
-![Runtime plot](plots/time_by_method.png)
+![Runtime plot](plots/main_run_1/time_by_method.png)
 
 ## How Runtime Was Measured
 
@@ -154,7 +155,7 @@ Runtime was measured in `scripts/02_run_benchmark.py` using:
 ```python
 embeddings = load_embeddings(...)
 start = time.perf_counter()
-coordinates = reduce_embeddings(method, embeddings)
+coordinates = reduce_embeddings(method, embeddings, random_state)
 elapsed = time.perf_counter() - start
 ```
 
@@ -170,8 +171,8 @@ It does include:
 
 - reducer construction,
 - the actual reduction call (`fit_transform` or equivalent),
-- and, for UMAP / PaCMAP / FIt-SNE, library imports currently performed inside
-  `reduce_embeddings`.
+- and, for UMAP / PaCMAP / FIt-SNE, library imports performed inside the
+  timed reduction call.
 
 Therefore the benchmark should be interpreted as:
 
@@ -179,6 +180,25 @@ Therefore the benchmark should be interpreted as:
 
 It is not a fully isolated algorithmic microbenchmark. This matters especially
 for methods with one-time setup, import, JIT, FAISS, or heuristic overheads.
+
+This limitation is exactly why `main_run_2` was prepared. The second run keeps
+the same data and methods, but measures a cleaner reduction-only timing:
+
+- embeddings are loaded before the timer,
+- imports and reducer construction are excluded from the timer,
+- a small warm-up run is executed before measurement,
+- each `(method, n_samples)` pair is repeated three times,
+- `time_seconds` stores the median runtime,
+- all repeat timings are saved separately.
+
+Expected `main_run_2` outputs:
+
+- `results/main_run_2/results_all.csv`,
+- `results/main_run_2/timings_<method>_<n_samples>.csv`,
+- `results/main_run_2/coordinates/coords_<method>_<n_samples>.csv`,
+- `plots/main_run_2/time_by_method.png`,
+- `plots/main_run_2/time_by_method_log.png`,
+- `plots/main_run_2/coordinates/embedding_<method>_50000_clusters.png`.
 
 ## Runtime Interpretation
 
@@ -190,7 +210,7 @@ UMAP and FIt-SNE take tens of seconds.
 For presentation, a log-scale runtime plot is recommended:
 
 ```bash
-python scripts/04_plot_results.py --yscale log --output plots/time_by_method_log.png
+python scripts/04_plot_results.py --yscale log --output plots/main_run_1/time_by_method_log.png
 ```
 
 PCA is fast because reducing `384D -> 2D` relies on highly optimized linear
@@ -264,19 +284,19 @@ The most visually useful methods for 50,000 reviews were PaCMAP and UMAP.
 
 PaCMAP 50k, colored by rating:
 
-![PaCMAP 50k](plots/coordinates/embedding_pacmap_50000.png)
+![PaCMAP 50k](plots/main_run_1/coordinates/embedding_pacmap_50000.png)
 
 UMAP 50k, colored by rating:
 
-![UMAP 50k](plots/coordinates/embedding_umap_50000.png)
+![UMAP 50k](plots/main_run_1/coordinates/embedding_umap_50000.png)
 
 PaCMAP 50k, colored by HDBSCAN clusters:
 
-![PaCMAP clusters](plots/coordinates/embedding_pacmap_50000_clusters.png)
+![PaCMAP clusters](plots/main_run_1/coordinates/embedding_pacmap_50000_clusters.png)
 
 UMAP 50k, colored by HDBSCAN clusters:
 
-![UMAP clusters](plots/coordinates/embedding_umap_50000_clusters.png)
+![UMAP clusters](plots/main_run_1/coordinates/embedding_umap_50000_clusters.png)
 
 ## Visual Interpretation
 
@@ -321,7 +341,7 @@ It satisfies the relevant requirements:
 The most important bridge between LSC and visualization is:
 
 ```text
-results/coordinates/coords_<method>_<n_samples>.csv
+results/<run_name>/coordinates/coords_<method>_<n_samples>.csv
 ```
 
 These files are a ready-to-use visualization dataset.
@@ -349,13 +369,26 @@ resource planning it is safer to use the SLURM allocation limit of about 274
 CPU-hours per full run. A grant request around 3000 CPU-hours gives enough room
 for debugging, reruns and additional variants.
 
+For `main_run_2`, the reduction array wall-time limit is increased to 3 hours
+because each task performs warm-up plus three timed repeats:
+
+```text
+reduction-only array: 16 jobs * 8 CPU * 3 h = 384 CPU-hours
+postprocess:           1 job * 4 CPU * 1 h = 4 CPU-hours
+----------------------------------------------------------
+maximum total: 388 CPU-hours
+```
+
+This is a worst-case allocation bound. The expected actual usage should be much
+lower, but this run is intentionally more rigorous than `main_run_1`.
+
 ## Limitations
 
-1. **Single-run benchmark**  
+1. **Main run 1 is a single-run benchmark**
    Each method/sample-size pair was run once. Results show practical runtime for
    one run, but do not estimate variance.
 
-2. **Timing includes some method setup/import overhead**  
+2. **Main run 1 timing includes some method setup/import overhead**
    Since imports for UMAP, PaCMAP and FIt-SNE happen inside the timed function,
    the runtime is not a perfectly isolated fit-only measurement.
 
@@ -390,9 +423,8 @@ for debugging, reruns and additional variants.
 
 6. Recommended figures for report/presentation:
 
-   - `plots/time_by_method.png`,
-   - `plots/time_by_method_log.png`,
-   - `plots/coordinates/embedding_pacmap_50000.png`,
-   - `plots/coordinates/embedding_pacmap_50000_clusters.png`,
-   - optionally `plots/coordinates/embedding_umap_50000.png`.
-
+   - `plots/main_run_1/time_by_method.png`,
+   - `plots/main_run_1/time_by_method_log.png`,
+   - `plots/main_run_1/coordinates/embedding_pacmap_50000.png`,
+   - `plots/main_run_1/coordinates/embedding_pacmap_50000_clusters.png`,
+   - optionally `plots/main_run_1/coordinates/embedding_umap_50000.png`.
