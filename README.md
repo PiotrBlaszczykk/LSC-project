@@ -78,9 +78,10 @@ Run a tiny smoke test on Ares before the full benchmark:
 sbatch slurm/smoke_test.sbatch
 ```
 
-Prepare embeddings once, then submit the benchmark array:
+Prepare embeddings once as a SLURM job, then submit the benchmark array:
 
 ```bash
+sbatch slurm/prepare_embeddings.sbatch
 sbatch slurm/reduction_array.sbatch
 ```
 
@@ -115,6 +116,8 @@ Full benchmark outputs:
 
 - `data/reviews_50000.csv`
 - `data/embeddings_50000.npy`
+- `logs/prepare_<job_id>.out`
+- `logs/prepare_<job_id>.err`
 - `results/benchmark_<method>_<n_samples>.csv`
 - `results/results_all.csv`
 - `plots/time_by_method.png`
@@ -125,19 +128,79 @@ Full benchmark outputs:
 
 The simplest workflow is to push changes to GitHub and pull them on Ares:
 
+First-time environment setup:
+
 ```bash
+cd ~
+mkdir -p ~/venvs
+module avail Python
+# Good Ares choice from the current module list:
+module load python/3.12.3-gcccore-13.3.0
+python3 -m venv ~/venvs/lsc-amazon
+source ~/venvs/lsc-amazon/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+cd ~/LSC-project
+python -m pip install -r requirements.txt
+python -c "import datasets, pandas, numpy, sklearn, sentence_transformers, umap, pacmap, openTSNE; print('imports OK')"
+```
+
+If installation fails with `Disk quota exceeded`, remove the partial venv and
+pip cache before retrying. The requirements file pins CPU-only PyTorch to avoid
+downloading large CUDA/NVIDIA wheels.
+
+```bash
+deactivate 2>/dev/null || true
+rm -rf ~/venvs/lsc-amazon ~/.cache/pip
+module load python/3.12.3-gcccore-13.3.0
+python3 -m venv ~/venvs/lsc-amazon
+source ~/venvs/lsc-amazon/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+cd ~/LSC-project
+python -m pip install --no-cache-dir -r requirements.txt
+```
+
+If Python 3.12 causes package build issues, recreate the venv with:
+
+```bash
+module load python/3.11.5-gcccore-13.2.0
+python3 -m venv ~/venvs/lsc-amazon
+```
+
+Regular run after pulling changes:
+
+```bash
+cd ~/LSC-project
 git pull
-pip3.12 install -r requirements.txt
+source ~/venvs/lsc-amazon/bin/activate
+python -m pip install -r requirements.txt
 sbatch slurm/smoke_test.sbatch
-python scripts/01_prepare_embeddings.py --n-samples 50000
+sbatch slurm/prepare_embeddings.sbatch
 sbatch slurm/reduction_array.sbatch
+```
+
+Do not run SLURM scripts with `sh`. Use `sbatch`, otherwise SLURM variables and
+log naming will not work correctly.
+
+Check jobs:
+
+```bash
+squeue -u "$USER"
+sacct -j <JOBID> --format=JobID,State,ExitCode,Elapsed,NodeList -X
 ```
 
 After the SLURM array finishes:
 
 ```bash
+source ~/venvs/lsc-amazon/bin/activate
 python scripts/03_merge_results.py
 python scripts/04_plot_results.py
+```
+
+Download final lightweight outputs from your laptop terminal, not from Ares:
+
+```bash
+scp -r plgblaszczykk@login01.ares.cyfronet.pl:~/LSC-project/results .
+scp -r plgblaszczykk@login01.ares.cyfronet.pl:~/LSC-project/plots .
 ```
 
 ## CPU-hours estimate
