@@ -46,6 +46,18 @@ Run a tiny end-to-end smoke test first:
 python scripts/00_smoke_test.py
 ```
 
+On Ares, an ad-hoc shell wrapper is also available:
+
+```bash
+bash smoke_test.sh
+```
+
+Optional overrides:
+
+```bash
+N_SAMPLES=200 BATCH_SIZE=8 CPU_THREADS=2 bash smoke_test.sh
+```
+
 Prepare the largest embedding sample:
 
 ```bash
@@ -123,6 +135,9 @@ Full benchmark outputs:
 - `plots/time_by_method.png`
 - `logs/reduction_<array_job_id>_<task_id>.out`
 - `logs/reduction_<array_job_id>_<task_id>.err`
+
+Hugging Face cache is written to `$SCRATCH/hf_cache` by the SLURM scripts, so
+model and dataset cache files do not fill the smaller `$HOME` quota.
 
 ## Ares workflow
 
